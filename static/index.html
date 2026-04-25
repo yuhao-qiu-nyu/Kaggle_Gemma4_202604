@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASL 手语教练</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #6c5ce7;
+    --accent-hover: #7f70f0;
+    --text: #e4e6eb;
+    --text-dim: #8b8fa3;
+    --green: #00b894;
+    --yellow: #fdcb6e;
+    --red: #e17055;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  header p {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 24px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+    transition: all .2s;
+    border: none;
+    background: none;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Upload area */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--card);
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent);
+    background: rgba(108,92,231,.08);
+  }
+  .upload-area svg { margin-bottom: 12px; }
+  .upload-area p { color: var(--text-dim); font-size: 14px; }
+  .upload-area .filename {
+    margin-top: 8px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  input[type="file"] { display: none; }
+
+  /* Webcam */
+  .webcam-wrapper {
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  #webcamVideo {
+    width: 100%;
+    display: block;
+    border-radius: var(--radius);
+    transform: scaleX(-1);
+  }
+  .webcam-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--text-dim); }
+
+  /* Options row */
+  .options {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .options input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .options input::placeholder { color: var(--text-dim); }
+
+  /* Submit row */
+  .submit-row {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+  }
+  .submit-row .btn { min-width: 200px; padding: 12px 32px; font-size: 16px; }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 48px;
+    display: none;
+  }
+  .loading.active { display: block; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading p { color: var(--text-dim); font-size: 14px; }
+
+  /* Results */
+  #results { display: none; margin-top: 32px; }
+  #results.active { display: block; }
+
+  .result-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .result-card h3 {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 12px;
+  }
+
+  .prediction-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .sign-label {
+    font-size: 36px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .confidence-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .confidence-high { background: rgba(0,184,148,.15); color: var(--green); }
+  .confidence-medium { background: rgba(253,203,110,.15); color: var(--yellow); }
+  .confidence-low { background: rgba(225,112,85,.15); color: var(--red); }
+
+  .topk-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .topk-item {
+    background: rgba(255,255,255,.04);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .topk-item .rank { color: var(--text-dim); margin-right: 4px; }
+
+  .coach-text {
+    font-size: 15px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+
+  .meta-info {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* Recording indicator */
+  .rec-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    background: var(--red);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 50% { opacity: .3; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>ASL 手语教练</h1>
+    <p>上传视频或打开摄像头录制，AI 识别手语并给出教学反馈</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="uploadPanel">上传视频</button>
+    <button class="tab" data-panel="webcamPanel">摄像头录制</button>
+  </div>
+
+  <!-- Upload Panel -->
+  <div id="uploadPanel" class="panel active">
+    <div class="upload-area" id="dropZone">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c5ce7" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p>拖拽视频到这里，或点击选择文件</p>
+      <p style="font-size:12px; margin-top:4px">支持 .mp4 / .mov / .avi</p>
+      <div class="filename" id="fileName"></div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*">
+  </div>
+
+  <!-- Webcam Panel -->
+  <div id="webcamPanel" class="panel">
+    <div class="webcam-wrapper">
+      <video id="webcamVideo" autoplay muted playsinline></video>
+      <div class="webcam-controls">
+        <button class="btn btn-primary" id="btnStartCam">打开摄像头</button>
+        <button class="btn btn-danger" id="btnRecord" style="display:none">
+          开始录制
+        </button>
+        <button class="btn btn-outline" id="btnStopCam" style="display:none">关闭</button>
+      </div>
+    </div>
+    <p id="recordStatus" style="text-align:center;margin-top:8px;font-size:13px;color:var(--text-dim)"></p>
+  </div>
+
+  <!-- Shared options -->
+  <div class="options">
+    <input type="text" id="userGoal" placeholder="学习目标（可选），如：learn family-related ASL vocabulary">
+    <input type="text" id="historyErrors" placeholder="易混淆词（可选），如：cloud,grandma">
+  </div>
+
+  <div class="submit-row">
+    <button class="btn btn-primary" id="btnSubmit" disabled>分析手语</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loadingArea">
+    <div class="spinner"></div>
+    <p id="loadingText">正在提取手势特征并分析…</p>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="result-card">
+      <h3>识别结果</h3>
+      <div class="prediction-main">
+        <span class="sign-label" id="resLabel">—</span>
+        <span class="confidence-badge" id="resBadge">—</span>
+      </div>
+      <div class="topk-list" id="resTopK"></div>
+      <div class="meta-info" id="resMeta"></div>
+    </div>
+    <div class="result-card">
+      <h3>教练反馈</h3>
+      <div class="coach-text" id="resCoach"></div>
+    </div>
+    <div class="submit-row" style="margin-top:24px">
+      <button class="btn btn-outline" id="btnReset">再来一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+let selectedFile = null;
+
+// --- Tabs ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.panel).classList.add('active');
+    updateSubmitState();
+  });
+});
+
+// --- File Upload ---
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+
+function handleFile(f) {
+  selectedFile = f;
+  fileName.textContent = f.name;
+  updateSubmitState();
+}
+
+// --- Webcam ---
+const webcamVideo = document.getElementById('webcamVideo');
+const btnStartCam = document.getElementById('btnStartCam');
+const btnRecord = document.getElementById('btnRecord');
+const btnStopCam = document.getElementById('btnStopCam');
+const recordStatus = document.getElementById('recordStatus');
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+
+btnStartCam.addEventListener('click', async () => {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    webcamVideo.srcObject = mediaStream;
+    btnStartCam.style.display = 'none';
+    btnRecord.style.display = '';
+    btnStopCam.style.display = '';
+  } catch (e) {
+    alert('无法打开摄像头: ' + e.message);
+  }
+});
+
+btnRecord.addEventListener('click', () => {
+  if (!isRecording) {
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm' });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      selectedFile = new File([blob], 'recording.webm', { type: 'video/webm' });
+      recordStatus.textContent = `录制完成 (${(blob.size/1024/1024).toFixed(1)} MB)`;
+      updateSubmitState();
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    btnRecord.innerHTML = '<span class="rec-dot"></span>停止录制';
+    recordStatus.textContent = '正在录制…';
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    btnRecord.textContent = '重新录制';
+  }
+});
+
+btnStopCam.addEventListener('click', () => {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    webcamVideo.srcObject = null;
+    mediaStream = null;
+  }
+  if (isRecording && mediaRecorder) {
+    mediaRecorder.stop();
+    isRecording = false;
+  }
+  btnStartCam.style.display = '';
+  btnRecord.style.display = 'none';
+  btnStopCam.style.display = 'none';
+  btnRecord.textContent = '开始录制';
+  recordStatus.textContent = '';
+});
+
+// --- Submit ---
+const btnSubmit = document.getElementById('btnSubmit');
+const loadingArea = document.getElementById('loadingArea');
+const results = document.getElementById('results');
+
+function updateSubmitState() {
+  btnSubmit.disabled = !selectedFile;
+}
+
+btnSubmit.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  btnSubmit.disabled = true;
+  results.classList.remove('active');
+  loadingArea.classList.add('active');
+
+  const form = new FormData();
+  form.append('video', selectedFile);
+  form.append('topk', '5');
+  const goal = document.getElementById('userGoal').value.trim();
+  const errors = document.getElementById('historyErrors').value.trim();
+  if (goal) form.append('user_goal', goal);
+  if (errors) form.append('history_errors', errors);
+
+  try {
+    const resp = await fetch(`${API}/coach_video`, { method: 'POST', body: form });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      alert('Error: ' + (data.detail || JSON.stringify(data)));
+      return;
+    }
+
+    renderResults(data);
+  } catch (e) {
+    alert('请求失败: ' + e.message);
+  } finally {
+    loadingArea.classList.remove('active');
+    btnSubmit.disabled = false;
+  }
+});
+
+function renderResults(d) {
+  document.getElementById('resLabel').textContent = d.predicted_label;
+
+  const badge = document.getElementById('resBadge');
+  badge.textContent = d.confidence + ` (${(d.predicted_prob * 100).toFixed(1)}%)`;
+  badge.className = 'confidence-badge confidence-' + d.confidence;
+
+  const topk = document.getElementById('resTopK');
+  topk.innerHTML = d.topk_predictions.map(p =>
+    `<span class="topk-item"><span class="rank">#${p.rank}</span>${p.label} ${(p.prob*100).toFixed(1)}%</span>`
+  ).join('');
+
+  document.getElementById('resMeta').textContent = d.num_frames ? `提取了 ${d.num_frames} 帧` : '';
+  document.getElementById('resCoach').textContent = d.coach_feedback;
+
+  results.classList.add('active');
+  results.scrollIntoView({ behavior: 'smooth' });
+}
+
+// --- Reset ---
+document.getElementById('btnReset').addEventListener('click', () => {
+  results.classList.remove('active');
+  selectedFile = null;
+  fileName.textContent = '';
+  fileInput.value = '';
+  recordStatus.textContent = '';
+  updateSubmitState();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+</script>
+</body>
+</html>

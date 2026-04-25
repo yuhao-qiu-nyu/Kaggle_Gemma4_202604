@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Model weights (too large for git)
+*.h5
+*.tflite
+holistic_landmarker.task
+tensorflow/islr-models/
+
+# Datasets
+datasets/
+
+# macOS
+.DS_Store
+._*
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# Secrets
+.env
+kaggle.json
+
+# Temp
+*.tmp
