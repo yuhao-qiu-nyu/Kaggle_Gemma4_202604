@@ -35,14 +35,8 @@ def _flatten_group(landmarks, expected_count: int) -> np.ndarray:
     """Convert one landmark group into (expected_count, 3) array, NaN-fill if missing."""
     if landmarks:
         pts = np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)
-        if len(pts) >= expected_count:
-            # If we have more points (e.g. 478 instead of 468), take the first expected_count
-            return pts[:expected_count]
-        else:
-            # If we have fewer points, pad with NaNs
-            padded = np.full((expected_count, 3), np.nan, dtype=np.float32)
-            padded[:len(pts)] = pts
-            return padded
+        if len(pts) == expected_count:
+            return pts
     return np.full((expected_count, 3), np.nan, dtype=np.float32)
 
 
@@ -85,28 +79,19 @@ def extract_landmarks_from_video(
 
     frames = []
     try:
-        frame_count = 0
         while True:
             ok, bgr = cap.read()
             if not ok:
                 break
-            frame_count += 1
             rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             result = detector.detect(mp_image)
 
             parts = []
-            valid_landmarks = 0
             for attr, count in _LANDMARK_GROUPS:
                 lm = getattr(result, attr, None)
-                if lm:
-                    valid_landmarks += 1
                 parts.append(_flatten_group(lm, count))
-            
-            combined = np.concatenate(parts, axis=0)
-            frames.append(combined)  # (543, 3)
-            
-        print(f"[extractor] Processed {frame_count} frames. Successfully extracted landmarks in {len(frames)} frames.")
+            frames.append(np.concatenate(parts, axis=0))  # (543, 3)
     finally:
         cap.release()
         detector.close()

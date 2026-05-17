@@ -46,7 +46,10 @@ BASE_DIR = Path(os.getenv(
 ))
 
 WEIGHT_DIR = BASE_DIR / "tensorflow" / "islr-models"
-SIGN_MAP = BASE_DIR / "app" / "sign_map.json"
+SIGN_MAP = (
+    BASE_DIR / "datasets" / "sohier" / "461054610546105"
+    / "versions" / "5" / "sign_to_prediction_index_map.json"
+)
 
 WEIGHT_FILES = sorted(WEIGHT_DIR.glob("islr-fp16-192-8-seed*-foldall-last.h5"))
 
@@ -102,12 +105,6 @@ if STATIC_DIR.is_dir():
 @app.get("/")
 def index():
     return FileResponse(str(STATIC_DIR / "index.html"))
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    from fastapi import Response
-    return Response(status_code=204)
 
 
 # ---------------------------------------------------------------------------

@@ -12,9 +12,9 @@ from typing import List
 
 import numpy as np
 import tensorflow as tf
-import tf_keras as keras
+from tensorflow import keras
 
-from .preprocess import (
+from preprocess import (
     CHANNELS,
     MAX_LEN,
     NUM_CLASSES,
@@ -204,26 +204,31 @@ class ASLEnsemble:
         self.s2p_map = {k.lower(): v for k, v in self._load_json(sign_map_path).items()}
         self.p2s_map = {v: k for k, v in self.s2p_map.items()}
 
-        # Create a logit mask to restrict predictions to signs in sign_map.json
-        # Classes NOT in the map will have a very large negative value added to their logits
-        self.logit_mask = np.full((NUM_CLASSES,), -1e9, dtype=np.float32)
-        for idx in self.p2s_map.keys():
-            self.logit_mask[idx] = 0.0
-
         self.models: List[keras.Model] = []
         for p in weight_paths:
             m = build_model()
-            # Try robust weight loading to handle Keras version differences
+            # 强行加载，忽略那些由于 Keras 版本差异导致的多余变量（如 dropout 的计数器）
             try:
-                m.load_weights(p)
-            except Exception as e:
-                print(f"[model] Warning: Standard load failed for {p}, trying robust load. Error: {e}")
-                try:
-                    # Some versions of Keras need this for older .h5 files
-                    m.load_weights(p, by_name=True, skip_mismatch=True)
-                except Exception as e2:
-                    print(f"[model] Critical: Failed to load weights {p}: {e2}")
+                # 尝试最宽容的加载方式
+                m.load_weights(p, by_name=True, skip_mismatch=True)
+            except TypeError:
+                # 如果你的环境不支持 skip_mismatch 参数，则使用这种手动逻辑
+                import h5py
+                with h5py.File(p, 'r') as f:
+                    # 这种方式会只针对名字匹配且形状一致的层进行填充
+                    for layer in m.layers:
+                        layer_name = layer.name
+                        if layer_name in f:
+                            print(f"尝试加载层权重: {layer_name}")
+                            try:
+                                # 手动设置权重，忽略不匹配的层
+                                weights = [f[layer_name][p] for p in f[layer_name].attrs['weight_names']]
+                                layer.set_weights(weights)
+                            except:
+                                print(f"⚠️ 跳过不匹配的层: {layer_name}")
+            
             self.models.append(m)
+            print(f"✅ 模型 {os.path.basename(p)} 权重加载逻辑处理完成")
 
     @staticmethod
     def _load_json(path: str):
@@ -239,21 +244,13 @@ class ASLEnsemble:
 
         logits_stack = [m(x, training=False) for m in self.models]
         logits = tf.reduce_mean(tf.stack(logits_stack, axis=0), axis=0)
-        
-        # Apply logit masking to restrict to known signs
-        logits = logits + self.logit_mask
-        
         probs = tf.nn.softmax(logits, axis=-1).numpy()[0]
 
         top_ids = np.argsort(probs)[::-1][:topk]
-        topk_predictions = []
-        for i, cid in enumerate(top_ids):
-            label = self.p2s_map.get(int(cid), f"unknown_{cid}")
-            topk_predictions.append({
-                "rank": len(topk_predictions) + 1,
-                "label": label,
-                "prob": float(probs[cid])
-            })
+        topk_predictions = [
+            {"rank": i + 1, "label": self.p2s_map[int(cid)], "prob": float(probs[cid])}
+            for i, cid in enumerate(top_ids)
+        ]
 
         best_prob = topk_predictions[0]["prob"]
         if best_prob >= 0.80:
