@@ -1,523 +1,492 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ASL 手语教练</title>
+<title>ASL AI Practice Classroom</title>
 <style>
   :root {
-    --bg: #0f1117;
-    --card: #1a1d27;
-    --border: #2a2d3a;
+    --bg: #0b0e14;
+    --card: #151921;
+    --border: #232936;
     --accent: #6c5ce7;
-    --accent-hover: #7f70f0;
-    --text: #e4e6eb;
-    --text-dim: #8b8fa3;
-    --green: #00b894;
-    --yellow: #fdcb6e;
-    --red: #e17055;
-    --radius: 12px;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --text: #f0f2f5;
+    --text-dim: #94a3b8;
+    --success: #00b894;
+    --warning: #fdcb6e;
+    --danger: #e17055;
+    --radius: 16px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-  }
-  .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 32px 20px;
-  }
-  header {
-    text-align: center;
-    margin-bottom: 36px;
-  }
-  header h1 {
-    font-size: 28px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  header p {
-    color: var(--text-dim);
-    font-size: 15px;
+    overflow-x: hidden;
   }
 
-  /* Tabs */
-  .tabs {
+  /* Layout */
+  .app-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 100vh;
+  }
+
+  /* Sidebar */
+  aside {
+    background: var(--card);
+    border-right: 1px solid var(--border);
     display: flex;
-    gap: 4px;
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 4px;
-    margin-bottom: 24px;
-  }
-  .tab {
-    flex: 1;
-    padding: 10px;
-    text-align: center;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-dim);
-    transition: all .2s;
-    border: none;
-    background: none;
-  }
-  .tab.active {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  /* Panels */
-  .panel { display: none; }
-  .panel.active { display: block; }
-
-  /* Upload area */
-  .upload-area {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 48px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .2s, background .2s;
-    background: var(--card);
-  }
-  .upload-area:hover, .upload-area.dragover {
-    border-color: var(--accent);
-    background: rgba(108,92,231,.08);
-  }
-  .upload-area svg { margin-bottom: 12px; }
-  .upload-area p { color: var(--text-dim); font-size: 14px; }
-  .upload-area .filename {
-    margin-top: 8px;
-    color: var(--accent);
-    font-weight: 500;
-  }
-  input[type="file"] { display: none; }
-
-  /* Webcam */
-  .webcam-wrapper {
-    background: var(--card);
-    border-radius: var(--radius);
-    overflow: hidden;
-    position: relative;
-  }
-  #webcamVideo {
-    width: 100%;
-    display: block;
-    border-radius: var(--radius);
-    transform: scaleX(-1);
-  }
-  .webcam-controls {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    padding: 16px;
-  }
-
-  /* Buttons */
-  .btn {
-    padding: 10px 24px;
-    border-radius: 8px;
-    border: none;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-primary:hover { background: var(--accent-hover); }
-  .btn-primary:disabled {
-    opacity: .4;
-    cursor: not-allowed;
-  }
-  .btn-danger {
-    background: var(--red);
-    color: #fff;
-  }
-  .btn-outline {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-outline:hover { border-color: var(--text-dim); }
-
-  /* Options row */
-  .options {
-    display: flex;
-    gap: 12px;
-    margin: 16px 0;
-  }
-  .options input {
-    flex: 1;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    font-size: 13px;
-  }
-  .options input::placeholder { color: var(--text-dim); }
-
-  /* Submit row */
-  .submit-row {
-    margin-top: 16px;
-    display: flex;
-    justify-content: center;
-  }
-  .submit-row .btn { min-width: 200px; padding: 12px 32px; font-size: 16px; }
-
-  /* Loading */
-  .loading {
-    text-align: center;
-    padding: 48px;
-    display: none;
-  }
-  .loading.active { display: block; }
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .8s linear infinite;
-    margin: 0 auto 16px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading p { color: var(--text-dim); font-size: 14px; }
-
-  /* Results */
-  #results { display: none; margin-top: 32px; }
-  #results.active { display: block; }
-
-  .result-card {
-    background: var(--card);
-    border-radius: var(--radius);
+    flex-direction: column;
     padding: 24px;
-    margin-bottom: 16px;
-    border: 1px solid var(--border);
   }
-  .result-card h3 {
-    font-size: 14px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    margin-bottom: 12px;
-  }
-
-  .prediction-main {
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 32px;
+    color: var(--accent);
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-  .sign-label {
-    font-size: 36px;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-  .confidence-badge {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .confidence-high { background: rgba(0,184,148,.15); color: var(--green); }
-  .confidence-medium { background: rgba(253,203,110,.15); color: var(--yellow); }
-  .confidence-low { background: rgba(225,112,85,.15); color: var(--red); }
-
-  .topk-list {
-    display: flex;
     gap: 8px;
-    flex-wrap: wrap;
   }
-  .topk-item {
-    background: rgba(255,255,255,.04);
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 13px;
+  .course-list {
+    flex: 1;
+    overflow-y: auto;
   }
-  .topk-item .rank { color: var(--text-dim); margin-right: 4px; }
+  .course-item {
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all .2s;
+    border: 1px solid transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .course-item:hover { background: rgba(255,255,255,0.05); }
+  .course-item.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 15px var(--accent-glow);
+  }
+  .course-item .label { font-weight: 500; text-transform: capitalize; }
+  .course-item .status { font-size: 10px; opacity: 0.7; }
 
-  .coach-text {
+  /* Main Content */
+  main {
+    padding: 32px;
+    overflow-y: auto;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Video Windows */
+  .video-container {
+    background: #000;
+    border-radius: var(--radius);
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  #refVideo { width: 100%; height: 100%; border: none; }
+  #webcamVideo { width: 100%; height: 100%; transform: scaleX(-1); object-fit: cover; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+  }
+  .btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+  /* Results Card */
+  .results-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 32px;
+    border: 1px solid var(--border);
+    display: none;
+  }
+  .results-card.active { display: block; animation: slideUp 0.4s ease-out; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .feedback-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .score-info h2 { font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+  .score-info .target-sign { color: var(--accent); }
+  
+  .judgment {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .pass { background: rgba(0, 184, 148, 0.15); color: var(--success); }
+  .fail { background: rgba(225, 112, 85, 0.15); color: var(--danger); }
+
+  .coach-comment {
+    background: rgba(255,255,255,0.03);
+    padding: 20px;
+    border-radius: 12px;
+    line-height: 1.7;
     font-size: 15px;
-    line-height: 1.75;
     white-space: pre-wrap;
   }
 
-  .meta-info {
+  /* Recording Indicator */
+  .rec-indicator {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(225, 112, 85, 0.8);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
     font-size: 12px;
-    color: var(--text-dim);
-    margin-top: 8px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    gap: 6px;
   }
+  .rec-indicator.active { display: flex; }
+  .dot { width: 8px; height: 8px; background: white; border-radius: 50%; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
 
-  /* Recording indicator */
-  .rec-dot {
-    display: inline-block;
-    width: 10px; height: 10px;
-    background: var(--red);
-    border-radius: 50%;
-    margin-right: 6px;
-    animation: blink 1s infinite;
+  /* Loading Overlay */
+  .loader-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(11, 14, 20, 0.8);
+    backdrop-filter: blur(4px);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
   }
-  @keyframes blink { 50% { opacity: .3; } }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>ASL 手语教练</h1>
-    <p>上传视频或打开摄像头录制，AI 识别手语并给出教学反馈</p>
-  </header>
 
-  <div class="tabs">
-    <button class="tab active" data-panel="uploadPanel">上传视频</button>
-    <button class="tab" data-panel="webcamPanel">摄像头录制</button>
-  </div>
-
-  <!-- Upload Panel -->
-  <div id="uploadPanel" class="panel active">
-    <div class="upload-area" id="dropZone">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c5ce7" stroke-width="1.5">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-      <p>拖拽视频到这里，或点击选择文件</p>
-      <p style="font-size:12px; margin-top:4px">支持 .mp4 / .mov / .avi</p>
-      <div class="filename" id="fileName"></div>
+<div class="app-grid">
+  <aside>
+    <div class="logo">
+      <span>🤟</span> ASL Classroom
     </div>
-    <input type="file" id="fileInput" accept="video/*">
-  </div>
+    <div class="panel-title">Choose a word to practice</div>
+    <div class="course-list" id="courseList">
+      <!-- Generated by JS -->
+    </div>
+  </aside>
 
-  <!-- Webcam Panel -->
-  <div id="webcamPanel" class="panel">
-    <div class="webcam-wrapper">
-      <video id="webcamVideo" autoplay muted playsinline></video>
-      <div class="webcam-controls">
-        <button class="btn btn-primary" id="btnStartCam">打开摄像头</button>
-        <button class="btn btn-danger" id="btnRecord" style="display:none">
-          开始录制
-        </button>
-        <button class="btn btn-outline" id="btnStopCam" style="display:none">关闭</button>
+  <main>
+    <div class="stage-grid">
+      <div class="stage-item">
+        <div class="panel-title">🎥 1. Reference video</div>
+        <div class="video-container">
+          <iframe id="refVideo" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+      </div>
+      <div class="stage-item">
+        <div class="panel-title">📹 2. Record your sign</div>
+        <div class="video-container">
+          <video id="webcamVideo" autoplay muted playsinline></video>
+          <div class="rec-indicator" id="recIndicator">
+            <div class="dot"></div> REC
+          </div>
+        </div>
+        <p id="recordStatus" style="text-align:center;margin-top:8px;font-size:13px;color:var(--text-dim)"></p>
+        <p id="envWarning" style="text-align:center;margin-top:8px;font-size:13px;color:var(--danger);display:none;"></p>
+        <div class="controls">
+          <button class="btn btn-outline" id="btnStartCam">Open camera</button>
+          <button class="btn btn-danger" id="btnRecord" style="display:none">Start recording</button>
+          <button class="btn btn-primary" id="btnSubmit" disabled>Submit for analysis</button>
+        </div>
       </div>
     </div>
-    <p id="recordStatus" style="text-align:center;margin-top:8px;font-size:13px;color:var(--text-dim)"></p>
-  </div>
 
-  <!-- Shared options -->
-  <div class="options">
-    <input type="text" id="userGoal" placeholder="学习目标（可选），如：learn family-related ASL vocabulary">
-    <input type="text" id="historyErrors" placeholder="易混淆词（可选），如：cloud,grandma">
-  </div>
-
-  <div class="submit-row">
-    <button class="btn btn-primary" id="btnSubmit" disabled>分析手语</button>
-  </div>
-
-  <!-- Loading -->
-  <div class="loading" id="loadingArea">
-    <div class="spinner"></div>
-    <p id="loadingText">正在提取手势特征并分析…</p>
-  </div>
-
-  <!-- Results -->
-  <div id="results">
-    <div class="result-card">
-      <h3>识别结果</h3>
-      <div class="prediction-main">
-        <span class="sign-label" id="resLabel">—</span>
-        <span class="confidence-badge" id="resBadge">—</span>
+    <div class="results-card" id="resultsCard">
+      <div class="feedback-header">
+        <div class="score-info">
+          <h2 id="resStatus">Analyzing...</h2>
+          <p>Target word: <span class="target-sign" id="targetLabel">CAT</span></p>
+        </div>
+        <div class="judgment" id="judgmentBadge">MATCH</div>
       </div>
-      <div class="topk-list" id="resTopK"></div>
-      <div class="meta-info" id="resMeta"></div>
+      <div class="coach-comment" id="coachFeedback"></div>
+      <div style="margin-top:24px">
+        <button class="btn btn-outline" onclick="resetUI()">Try again</button>
+      </div>
     </div>
-    <div class="result-card">
-      <h3>教练反馈</h3>
-      <div class="coach-text" id="resCoach"></div>
-    </div>
-    <div class="submit-row" style="margin-top:24px">
-      <button class="btn btn-outline" id="btnReset">再来一次</button>
-    </div>
-  </div>
+  </main>
+</div>
+
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <p>Uploading and analyzing your sign with AI...</p>
 </div>
 
 <script>
-const API = window.location.origin;
-let selectedFile = null;
-
-// --- Tabs ---
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(tab.dataset.panel).classList.add('active');
-    updateSubmitState();
-  });
-});
-
-// --- File Upload ---
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const fileName = document.getElementById('fileName');
-
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length) handleFile(fileInput.files[0]);
-});
-
-function handleFile(f) {
-  selectedFile = f;
-  fileName.textContent = f.name;
-  updateSubmitState();
-}
-
-// --- Webcam ---
-const webcamVideo = document.getElementById('webcamVideo');
+// --- Global Elements (Fixed Initialization Order) ---
 const btnStartCam = document.getElementById('btnStartCam');
 const btnRecord = document.getElementById('btnRecord');
-const btnStopCam = document.getElementById('btnStopCam');
-const recordStatus = document.getElementById('recordStatus');
+const btnSubmit = document.getElementById('btnSubmit');
+const webcamVideo = document.getElementById('webcamVideo');
+const recIndicator = document.getElementById('recIndicator');
+const listEl = document.getElementById('courseList');
+const loader = document.getElementById('loader');
+
+const COURSES = [
+  { word: 'apple', id: '3wIiujOP6Ag' },
+  { word: 'book', id: 'XjWSfh50kAU' },
+  { word: 'bye', id: '4e14uNAn2Ao' },
+  { word: 'cat', id: 'LzbVyRp_8Bg' },
+  { word: 'dad', id: '1Vllc4F5ic0' },
+  { word: 'dog', id: 'IbpJtH_QssM' },
+  { word: 'drink', id: 'LqJM7wcUixQ' },
+  { word: 'happy', id: 'ZXHHO_DY6_A' },
+  { word: 'hello', id: 'FVjpLa8GqeM' },
+  { word: 'home', id: 'WSHD1XX7kWk' },
+  { word: 'hot', id: '00cPyUsrC6M' },
+  { word: 'hungry', id: 'yPb2a_UcRr4' },
+  { word: 'look', id: 'JytzcBQp8d4' },
+  { word: 'milk', id: 'quk_XoRtZWk' },
+  { word: 'mom', id: 'DHl2-NT3mIM' },
+  { word: 'no', id: 'QJXKaOSyl4o' },
+  { word: 'please', id: 'rnb9FxPO7is' },
+  { word: 'sad', id: 'zfkQYQhrZ6Q' },
+  { word: 'sleep', id: 'dXEqaWSEztY' },
+  { word: 'thankyou', id: 'IvRwNLNR4_w' },
+  { word: 'water', id: 'QDlDLqvdApI' },
+  { word: 'where', id: 'qxh-EVaK6kY' },
+  { word: 'who', id: 'wKl26BsEAoc' },
+  { word: 'why', id: 'K0yp2v6Atxs' },
+  { word: 'yes', id: '0usayvOXzHo' }
+];
+
+let activeCourse = COURSES[0];
 let mediaStream = null;
 let mediaRecorder = null;
 let recordedChunks = [];
+let recordedBlob = null;
 let isRecording = false;
 
-btnStartCam.addEventListener('click', async () => {
+// --- Init Course List ---
+COURSES.forEach((c, index) => {
+  const item = document.createElement('div');
+  item.className = `course-item ${index === 0 ? 'active' : ''}`;
+  item.innerHTML = `<span class="label">${c.word}</span><span class="status">Not tried</span>`;
+  item.onclick = () => selectCourse(c, item);
+  listEl.appendChild(item);
+});
+
+function selectCourse(course, element) {
+  activeCourse = course;
+  document.querySelectorAll('.course-item').forEach(i => i.classList.remove('active'));
+  element.classList.add('active');
+  
+  document.getElementById('refVideo').src = `https://www.youtube.com/embed/${course.id}?autoplay=0&mute=1`;
+  document.getElementById('targetLabel').textContent = course.word.toUpperCase();
+  resetUI();
+}
+
+if (listEl.firstElementChild) {
+  selectCourse(COURSES[0], listEl.firstElementChild);
+}
+
+// --- Camera & Recording ---
+btnStartCam.onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const msg = 'Camera is not available in this browser. Use localhost or HTTPS.';
+    console.error(msg);
+    alert(msg);
+    return;
+  }
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+      audio: false 
+    });
     webcamVideo.srcObject = mediaStream;
     btnStartCam.style.display = 'none';
-    btnRecord.style.display = '';
-    btnStopCam.style.display = '';
-  } catch (e) {
-    alert('无法打开摄像头: ' + e.message);
+    btnRecord.style.display = 'flex';
+    document.getElementById('envWarning').style.display = 'none';
+  } catch (err) {
+    console.error('Camera access error:', err);
+    alert('Could not access camera: ' + err.message + '\nPlease check camera permissions.');
+  }
+};
+
+window.addEventListener('load', () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const warnEl = document.getElementById('envWarning');
+    warnEl.textContent = '⚠️ Camera not supported. Open this page via http://localhost:8001';
+    warnEl.style.display = 'block';
   }
 });
 
-btnRecord.addEventListener('click', () => {
+btnRecord.onclick = () => {
   if (!isRecording) {
-    recordedChunks = [];
-    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm' });
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      selectedFile = new File([blob], 'recording.webm', { type: 'video/webm' });
-      recordStatus.textContent = `录制完成 (${(blob.size/1024/1024).toFixed(1)} MB)`;
-      updateSubmitState();
-    };
-    mediaRecorder.start();
-    isRecording = true;
-    btnRecord.innerHTML = '<span class="rec-dot"></span>停止录制';
-    recordStatus.textContent = '正在录制…';
+    startRecording();
   } else {
-    mediaRecorder.stop();
-    isRecording = false;
-    btnRecord.textContent = '重新录制';
+    stopRecording();
   }
-});
+};
 
-btnStopCam.addEventListener('click', () => {
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-    webcamVideo.srcObject = null;
-    mediaStream = null;
+function startRecording() {
+  recordedChunks = [];
+  let options = { mimeType: 'video/webm;codecs=vp8' };
+  if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+    options = { mimeType: 'video/webm' };
   }
-  if (isRecording && mediaRecorder) {
-    mediaRecorder.stop();
-    isRecording = false;
+  if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+    options = { mimeType: '' };
   }
-  btnStartCam.style.display = '';
-  btnRecord.style.display = 'none';
-  btnStopCam.style.display = 'none';
-  btnRecord.textContent = '开始录制';
-  recordStatus.textContent = '';
-});
-
-// --- Submit ---
-const btnSubmit = document.getElementById('btnSubmit');
-const loadingArea = document.getElementById('loadingArea');
-const results = document.getElementById('results');
-
-function updateSubmitState() {
-  btnSubmit.disabled = !selectedFile;
+  
+  try {
+    mediaRecorder = new MediaRecorder(mediaStream, options);
+  } catch (e) {
+    console.error('MediaRecorder creation failed:', e);
+    alert('Could not start recording. Try refreshing the page.');
+    return;
+  }
+  
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
+    btnSubmit.disabled = false;
+    document.getElementById('recordStatus').textContent = 'Recording ready — click Submit for analysis';
+  };
+  
+  mediaRecorder.start();
+  isRecording = true;
+  btnRecord.textContent = 'Stop recording';
+  btnRecord.classList.replace('btn-danger', 'btn-outline');
+  recIndicator.classList.add('active');
+  document.getElementById('recordStatus').textContent = 'Recording…';
 }
 
-btnSubmit.addEventListener('click', async () => {
-  if (!selectedFile) return;
+function stopRecording() {
+  mediaRecorder.stop();
+  isRecording = false;
+  btnRecord.textContent = 'Record again';
+  btnRecord.classList.replace('btn-outline', 'btn-danger');
+  recIndicator.classList.remove('active');
+}
 
-  btnSubmit.disabled = true;
-  results.classList.remove('active');
-  loadingArea.classList.add('active');
-
-  const form = new FormData();
-  form.append('video', selectedFile);
-  form.append('topk', '5');
-  const goal = document.getElementById('userGoal').value.trim();
-  const errors = document.getElementById('historyErrors').value.trim();
-  if (goal) form.append('user_goal', goal);
-  if (errors) form.append('history_errors', errors);
+// --- Submit & Analysis ---
+btnSubmit.onclick = async () => {
+  if (!recordedBlob) return;
+  
+  loader.style.display = 'flex';
+  
+  const formData = new FormData();
+  formData.append('video', recordedBlob, 'capture.webm');
+  formData.append('user_goal', `Practice word: ${activeCourse.word}`);
+  formData.append('target_sign', activeCourse.word);
+  formData.append('topk', '5');
 
   try {
-    const resp = await fetch(`${API}/coach_video`, { method: 'POST', body: form });
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      alert('Error: ' + (data.detail || JSON.stringify(data)));
-      return;
+    const response = await fetch('/coach_video', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      const detail = result.detail || JSON.stringify(result);
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
-
-    renderResults(data);
-  } catch (e) {
-    alert('请求失败: ' + e.message);
+    showResults(result);
+    const activeItem = document.querySelector('.course-item.active .status');
+    if (activeItem) {
+      const predicted = result.predicted_label.toLowerCase();
+      activeItem.textContent = predicted === activeCourse.word.toLowerCase() ? 'Passed' : 'Try again';
+    }
+  } catch (err) {
+    alert('Submission failed: ' + err.message);
   } finally {
-    loadingArea.classList.remove('active');
-    btnSubmit.disabled = false;
+    loader.style.display = 'none';
   }
-});
+};
 
-function renderResults(d) {
-  document.getElementById('resLabel').textContent = d.predicted_label;
-
-  const badge = document.getElementById('resBadge');
-  badge.textContent = d.confidence + ` (${(d.predicted_prob * 100).toFixed(1)}%)`;
-  badge.className = 'confidence-badge confidence-' + d.confidence;
-
-  const topk = document.getElementById('resTopK');
-  topk.innerHTML = d.topk_predictions.map(p =>
-    `<span class="topk-item"><span class="rank">#${p.rank}</span>${p.label} ${(p.prob*100).toFixed(1)}%</span>`
-  ).join('');
-
-  document.getElementById('resMeta').textContent = d.num_frames ? `提取了 ${d.num_frames} 帧` : '';
-  document.getElementById('resCoach').textContent = d.coach_feedback;
-
-  results.classList.add('active');
-  results.scrollIntoView({ behavior: 'smooth' });
+function showResults(data) {
+  const card = document.getElementById('resultsCard');
+  const statusH2 = document.getElementById('resStatus');
+  const badge = document.getElementById('judgmentBadge');
+  const feedback = document.getElementById('coachFeedback');
+  
+  card.classList.add('active');
+  
+  const predicted = data.predicted_label.toLowerCase();
+  const target = activeCourse.word.toLowerCase();
+  const isMatch = predicted === target;
+  
+  statusH2.textContent = isMatch ? 'Sign matched! 🎉' : 'Sign did not match 😅';
+  statusH2.style.color = isMatch ? 'var(--success)' : 'var(--danger)';
+  
+  badge.textContent = isMatch ? 'PERFECT' : 'TRY AGAIN';
+  badge.className = `judgment ${isMatch ? 'pass' : 'fail'}`;
+  
+  feedback.textContent = data.coach_feedback;
+  card.scrollIntoView({ behavior: 'smooth' });
 }
 
-// --- Reset ---
-document.getElementById('btnReset').addEventListener('click', () => {
-  results.classList.remove('active');
-  selectedFile = null;
-  fileName.textContent = '';
-  fileInput.value = '';
-  recordStatus.textContent = '';
-  updateSubmitState();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+function resetUI() {
+  const card = document.getElementById('resultsCard');
+  if (card) card.classList.remove('active');
+  if (btnSubmit) btnSubmit.disabled = true;
+  recordedBlob = null;
+  document.getElementById('recordStatus').textContent = '';
+  if (btnRecord && btnRecord.style.display !== 'none') {
+    btnRecord.textContent = 'Start recording';
+  }
+}
 </script>
 </body>
 </html>

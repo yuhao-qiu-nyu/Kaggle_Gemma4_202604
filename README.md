@@ -1,50 +1,117 @@
 # ASL Sign Language Recognition API
 
-手语识别 + Gemma 4 教练反馈，一个 API 搞定。
+Isolated ASL sign recognition with optional Gemini coaching feedback, exposed as a FastAPI service and a simple web UI.
 
-## 快速开始
+The recognizer is built on the [Google — Isolated Sign Language Recognition](https://www.kaggle.com/competitions/asl-signs/) (ISLR) Kaggle competition architecture. This deployment restricts inference to **25 signs** listed in `app/sign_map.json` (the full competition vocabulary has 250 signs).
+
+## Supported signs (25)
+
+These are the only labels the API will return. Predictions outside this set are masked at inference time.
+
+| | | | | |
+|---|---|---|---|---|
+| bye | please | thankyou | hello | who |
+| where | why | yes | no | drink |
+| water | milk | apple | dad | mom |
+| cat | dog | home | sleep | hungry |
+| happy | sad | hot | look | book |
+
+Alphabetical list: `apple`, `book`, `bye`, `cat`, `dad`, `dog`, `drink`, `happy`, `hello`, `home`, `hot`, `hungry`, `look`, `milk`, `mom`, `no`, `please`, `sad`, `sleep`, `thankyou`, `water`, `where`, `who`, `why`, `yes`.
+
+**How to test:** record a short `.mp4` of one of the signs above and call `POST /coach_video`, or use pre-extracted landmark `.parquet` files with `/predict_from_file` / `/coach_from_file`. The web UI at `http://localhost:8000/` uses the same vocabulary.
+
+## Prerequisites & downloads
+
+### 1. Python dependencies
 
 ```bash
-# 1. 安装依赖
-cd /Volumes/senzu/LLMPROJECTs/ASL
+cd /path/to/ASL
+python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-
-# 2. 启动服务
-GEMINI_API_KEY=你的key TF_USE_LEGACY_KERAS=1 \
-  .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## 获取 Gemini API Key
+### 2. Ensemble model weights (required)
 
-1. 打开 https://aistudio.google.com/apikey
-2. 用 Google 账号登录
-3. 点 **Create API Key**，复制生成的 Key
-4. 启动时通过 `GEMINI_API_KEY` 环境变量传入
+Place the ISLR `.h5` weight files under:
 
-> 不设 Key 也能启动，`/predict` 正常可用，只是 `/coach` 会返回 503。
+```
+tensorflow/islr-models/
+├── islr-fp16-192-8-seed42-foldall-last.h5
+├── islr-fp16-192-8-seed43-foldall-last.h5
+├── islr-fp16-192-8-seed44-foldall-last.h5
+└── islr-fp16-192-8-seed45-foldall-last.h5
+```
 
-## API 端点
+These come from the 1st-place ISLR solution (Kaggle notebook input path: `/kaggle/input/islr-models/`). Download them from the competition’s model/dataset attachments or your own training run, then copy them into `tensorflow/islr-models/`. The server will not start without at least one matching `islr-fp16-192-8-seed*-foldall-last.h5` file.
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/health` | GET | 健康检查 |
-| `/predict` | POST | 纯识别（接收 landmark JSON） |
-| `/predict_from_file` | POST | 纯识别（接收 parquet 文件路径） |
-| `/coach` | POST | 识别 + Gemma 4 教练反馈 |
-| `/coach_from_file` | POST | 同上（parquet 文件版） |
-| `/coach_video` | POST | **完整管线**：上传视频 → MediaPipe → 识别 → 教练反馈 |
+Set `ASL_BASE_DIR` if the project root is not the default path used in `app/main.py`.
 
-交互式文档：启动后访问 http://localhost:8000/docs
-
-## 调用示例
+### 3. MediaPipe Holistic model (required for video upload)
 
 ```bash
-# 纯识别
+wget -O holistic_landmarker.task \
+  https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task
+```
+
+Put the file in the repository root (or set `HOLISTIC_MODEL_PATH`).
+
+### 4. Kaggle datasets (for training, evaluation, and parquet-based testing)
+
+| Dataset | Kaggle slug | Purpose |
+|---------|-------------|---------|
+| **ASL Signs (competition)** | [`google/asl-signs`](https://www.kaggle.com/competitions/asl-signs/data) | Official ISLR data: `train.csv`, `sign_to_prediction_index_map.json` (250 signs), and `train_landmark_files/*.parquet` (543 landmarks per frame). Accept competition rules before downloading. |
+| **Preprocessed landmarks** | [`sohier/461054610546105`](https://www.kaggle.com/datasets/sohier/461054610546105) | Ready-to-use landmark parquets used in the project notebooks (`kaggle datasets download -d sohier/461054610546105`). |
+| **WLASL processed videos** (optional) | [`risangbaskoro/wlasl-processed`](https://www.kaggle.com/datasets/risangbaskoro/wlasl-processed) | Raw/processed WLASL clips if you want to build landmarks from video instead of using competition parquets. |
+
+Example (requires [Kaggle API](https://www.kaggle.com/docs/api) credentials in `~/.kaggle/kaggle.json`):
+
+```bash
+kaggle competitions download -c asl-signs -p datasets/asl-signs
+kaggle datasets download -d sohier/461054610546105 -p datasets/sohier --unzip
+```
+
+Large artifacts (`*.h5`, `holistic_landmarker.task`, `datasets/`) are gitignored; download them locally after cloning.
+
+## Quick start
+
+```bash
+export GEMINI_API_KEY=your-api-key-here   # optional, for /coach endpoints
+export TF_USE_LEGACY_KERAS=1
+
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Open http://localhost:8000/ for the UI, or http://localhost:8000/docs for the interactive API reference.
+
+## Gemini API key (optional)
+
+1. Go to https://aistudio.google.com/apikey  
+2. Sign in with a Google account  
+3. Click **Create API Key** and copy the key  
+4. Pass it as `GEMINI_API_KEY` when starting the server  
+
+Without a key, the service still runs: `/predict*` works; `/coach*` returns HTTP 503.
+
+## API endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Liveness check |
+| `/predict` | POST | Recognition from landmark JSON |
+| `/predict_from_file` | POST | Recognition from a `.parquet` path on disk |
+| `/coach` | POST | Recognition + Gemini coaching feedback |
+| `/coach_from_file` | POST | Same as `/coach`, from a parquet path |
+| `/coach_video` | POST | Full pipeline: upload `.mp4` → MediaPipe → recognize → coach |
+
+## Example requests
+
+```bash
+# Recognition from parquet
 curl -X POST http://localhost:8000/predict_from_file \
   -H "Content-Type: application/json" \
   -d '{"parquet_path": "/path/to/landmarks.parquet", "topk": 5}'
 
-# 识别 + 教练反馈（从 parquet）
+# Recognition + coaching (parquet)
 curl -X POST http://localhost:8000/coach_from_file \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,7 +121,7 @@ curl -X POST http://localhost:8000/coach_from_file \
     "history_errors": ["cloud", "grandma"]
   }'
 
-# 完整管线：上传视频，一步到位
+# Full pipeline: video upload
 curl -X POST http://localhost:8000/coach_video \
   -F "video=@my_sign.mp4" \
   -F "topk=3" \
@@ -62,15 +129,18 @@ curl -X POST http://localhost:8000/coach_video \
   -F "history_errors=cloud,grandma"
 ```
 
-## 项目结构
+## Project layout
 
 ```
 app/
-├── main.py                 # FastAPI 路由 + 启动
-├── model.py                # 模型架构 + Ensemble 推理
-├── preprocess.py           # Landmark 预处理
-├── schemas.py              # 请求/响应数据模型
-├── llm.py                  # Gemma 4 调用层（可替换为其他 LLM）
-└── mediapipe_extractor.py  # 视频 → 543 landmarks/帧
-holistic_landmarker.task    # MediaPipe 全身地标模型（13MB）
+├── main.py                 # FastAPI routes and startup
+├── model.py                # Architecture + ensemble inference
+├── preprocess.py           # Landmark preprocessing
+├── schemas.py              # Request/response models
+├── llm.py                  # Gemini coaching layer
+├── mediapipe_extractor.py  # Video → 543 landmarks per frame
+└── sign_map.json           # 25-sign subset used at inference
+tensorflow/islr-models/     # Ensemble .h5 weights (download separately)
+holistic_landmarker.task    # MediaPipe model (~13 MB, download separately)
+static/index.html           # Web UI
 ```

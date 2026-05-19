@@ -14,7 +14,7 @@ import tensorflow as tf
 ROWS_PER_FRAME = 543
 MAX_LEN = 384
 NUM_CLASSES = 250
-PAD = 0.0
+PAD = -100.0
 
 NOSE = [1, 2, 98, 327]
 LIP = [
@@ -52,8 +52,9 @@ def _tf_nan_std(x, center=None, axis=0, keepdims=False):
     d = x - center
     return tf.math.sqrt(_tf_nan_mean(d * d, axis=axis, keepdims=keepdims))
 
+from tensorflow.keras import layers
 
-class Preprocess(tf.keras.layers.Layer):
+class Preprocess(layers.Layer):
     def __init__(self, max_len=MAX_LEN, point_landmarks=None, **kwargs):
         super().__init__(**kwargs)
         self.max_len = max_len
@@ -62,15 +63,7 @@ class Preprocess(tf.keras.layers.Layer):
     def call(self, inputs):
         x = inputs[None, ...] if tf.rank(inputs) == 3 else inputs
 
-        # Normalization centering - use index 17 (face/nose) if available
-        face_pts = tf.gather(x, [17], axis=2)
-        mean = _tf_nan_mean(face_pts, axis=[1, 2], keepdims=True)
-        
-        # If face is missing, try pose center (landmark 0 in pose group)
-        if tf.reduce_all(tf.math.is_nan(mean)):
-            pose_pts = tf.gather(x, [489], axis=2) # Pose landmark 0
-            mean = _tf_nan_mean(pose_pts, axis=[1, 2], keepdims=True)
-            
+        mean = _tf_nan_mean(tf.gather(x, [17], axis=2), axis=[1, 2], keepdims=True)
         mean = tf.where(tf.math.is_nan(mean), tf.constant(0.5, x.dtype), mean)
         x = tf.gather(x, self.point_landmarks, axis=2)
         std = _tf_nan_std(x, center=mean, axis=[1, 2], keepdims=True)
@@ -108,15 +101,29 @@ _preprocess_layer = Preprocess(max_len=MAX_LEN)
 
 
 def prepare_single_sample(raw_landmarks: np.ndarray) -> tf.Tensor:
-    """(T, 543, 3) ndarray → (1, MAX_LEN, CHANNELS) tensor, padded."""
+    # 1. 基础转换
     x = tf.convert_to_tensor(raw_landmarks, dtype=tf.float32)
-    x = _preprocess_layer(x)[0]            # (T', CHANNELS)
-    x = tf.expand_dims(x, axis=0)          # (1, T', CHANNELS)
+    
+    # 2. 预处理层（处理空数据的关键点）
+    x = _preprocess_layer(x)
+    
+    # --- 新增安全检查 ---
+    # 如果处理后没有帧（例如没抓到手），构造一个全 0 帧防止报错
+    if tf.shape(x)[0] == 0:
+        x = tf.zeros((1, CHANNELS), dtype=tf.float32)
+    else:
+        x = x[0] # 原有的逻辑
+    # ------------------
 
+    x = tf.expand_dims(x, axis=0) # (1, T', CHANNELS)
+    
     seq_len = tf.shape(x)[1]
     if seq_len < MAX_LEN:
+        # 补齐逻辑
         pad_tensor = tf.ones((1, MAX_LEN - seq_len, CHANNELS), dtype=x.dtype) * PAD
         x = tf.concat([x, pad_tensor], axis=1)
     else:
+        # 裁剪逻辑
         x = x[:, :MAX_LEN, :]
+        
     return x
